@@ -1,19 +1,23 @@
 package com.example;
+
+import com.badlogic.gdx.ApplicationAdapter;
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.backends.lwjgl.LwjglApplication;
+import com.badlogic.gdx.backends.lwjgl.LwjglApplicationConfiguration;
 import com.badlogic.gdx.files.FileHandle;
+import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.utils.Array;
 import com.esotericsoftware.spine.Animation;
 import com.esotericsoftware.spine.SkeletonBinary;
 import com.esotericsoftware.spine.SkeletonData;
-import com.esotericsoftware.spine.Skin;
-import com.esotericsoftware.spine.attachments.*;
+import com.esotericsoftware.spine.attachments.AtlasAttachmentLoader;
 
 import java.io.File;
-import java.io.IOException;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
 
-public class SpineAnimationExtractor {
+public class SpineAnimationExtractor extends ApplicationAdapter {
     static class Entry {
         String path;
         List<String> animations;
@@ -24,58 +28,47 @@ public class SpineAnimationExtractor {
         }
     }
 
-    static class NullAttachmentLoader implements AttachmentLoader {
-        @Override
-        public RegionAttachment newRegionAttachment(Skin skin, String name, String path) {
-			return null;
-        }
+    private final String spineFolderPath;
+    private boolean processingComplete = false;
 
-        @Override
-        public MeshAttachment newMeshAttachment(Skin skin, String name, String path) {
-			return null;
-        }
+    public SpineAnimationExtractor(String spineFolderPath) {
+        this.spineFolderPath = spineFolderPath;
+    }
 
-        @Override
-        public BoundingBoxAttachment newBoundingBoxAttachment(Skin skin, String name) {
-            return null;
-        }
-
-        @Override
-        public ClippingAttachment newClippingAttachment(Skin skin, String name) {
-            return null;
-        }
-
-        @Override
-        public PathAttachment newPathAttachment(Skin skin, String name) {
-            return null;
-        }
-
-        @Override
-        public PointAttachment newPointAttachment(Skin skin, String name) {
-            return null;
+    @Override
+    public void create() {
+        try {
+            processSpineFiles();
+        } catch (Exception e) {
+            System.err.println("Error during processing: " + e.getMessage());
+            e.printStackTrace();
+        } finally {
+            processingComplete = true;
+            Gdx.app.exit(); // 完成後關閉應用
         }
     }
 
-    public static void main(String[] args) throws IOException {
-        if (args.length != 1) {
-            System.err.println("Usage: java -jar spine-tool.jar <SPINE_folder_path>");
-            System.exit(1);
-        }
-
-        Path spinePath = Paths.get(args[0]);
+    private void processSpineFiles() throws Exception {
+        Path spinePath = Paths.get(spineFolderPath);
         if (!Files.isDirectory(spinePath)) {
-            System.err.println("Error: " + args[0] + " is not a directory");
-            System.exit(1);
+            System.err.println("Error: " + spineFolderPath + " is not a directory");
+            return;
         }
 
-        // 收集所有 .skel 檔案
+        // 收集所有 .skel 和 .atlas 檔案
         List<File> skelFiles = new ArrayList<>();
+        Map<String, File> atlasFiles = new HashMap<>();
         Files.walkFileTree(spinePath, new SimpleFileVisitor<Path>() {
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
-                if (file.toString().endsWith(".skel")) {
+                String fileName = file.toString();
+                if (fileName.endsWith(".skel")) {
                     skelFiles.add(file.toFile());
-					System.out.println(file.toFile());
+                    System.out.println("Found .skel file: " + file.toFile());
+                } else if (fileName.endsWith(".atlas")) {
+                    String baseName = file.getFileName().toString().replace(".atlas", "");
+                    atlasFiles.put(baseName, file.toFile());
+                    System.out.println("Found .atlas file: " + file.toFile());
                 }
                 return FileVisitResult.CONTINUE;
             }
@@ -83,7 +76,6 @@ public class SpineAnimationExtractor {
 
         // 儲存條目
         TreeMap<String, Entry> entries = new TreeMap<>();
-        SkeletonBinary skeletonBinary = new SkeletonBinary(new NullAttachmentLoader());
 
         for (File skelFile : skelFiles) {
             try {
@@ -91,6 +83,22 @@ public class SpineAnimationExtractor {
                 String relativePath = spinePath.relativize(skelFile.toPath()).toString().replace('\\', '/');
                 String pathWithoutExt = relativePath.substring(0, relativePath.length() - 5);
                 String key = pathWithoutExt.replace('/', '_').toUpperCase();
+
+                // 查找對應的 .atlas 檔案
+                String skelBaseName = skelFile.getName().replace(".skel", "");
+                File atlasFile = atlasFiles.get(skelBaseName);
+                if (atlasFile == null) {
+                    System.err.println("No .atlas file found for " + skelFile + ", skipping...");
+                    continue;
+                }
+
+                // 載入 TextureAtlas
+                FileHandle atlasHandle = new FileHandle(atlasFile);
+                TextureAtlas atlas = new TextureAtlas(atlasHandle);
+
+                // 使用 AtlasAttachmentLoader
+                AtlasAttachmentLoader attachmentLoader = new AtlasAttachmentLoader(atlas);
+                SkeletonBinary skeletonBinary = new SkeletonBinary(attachmentLoader);
 
                 // 載入骨骼數據
                 FileHandle skelHandle = new FileHandle(skelFile);
@@ -133,5 +141,20 @@ public class SpineAnimationExtractor {
 
         // 輸出 Lua 程式碼
         System.out.println(luaCode);
+    }
+
+    public static void main(String[] args) {
+        if (args.length != 1) {
+            System.err.println("Usage: java -jar spine-tool.jar <SPINE_folder_path>");
+            System.exit(1);
+        }
+
+        LwjglApplicationConfiguration config = new LwjglApplicationConfiguration();
+        config.title = "Spine Animation Extractor";
+        config.width = 1; // 最小窗口大小
+        config.height = 1;
+        config.forceExit = true;
+        config.vSyncEnabled = false;
+        new LwjglApplication(new SpineAnimationExtractor(args[0]), config);
     }
 }
