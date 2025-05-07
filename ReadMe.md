@@ -37,7 +37,7 @@ D:\SpineHelperMaven\
 
 
 
-雙擊 target 資料夾中的 clickThis.bat 檔案。
+雙擊 clickThis.bat 檔案。
 
 
 
@@ -73,7 +73,7 @@ D:\SpineHelperMaven\
 
 
 
-確保系統已安裝 Java 8（運行 java -version 確認版本為 1.8.x）。
+確保系統已安裝 Java 8 或以上。
 
 
 
