@@ -139,8 +139,14 @@ public class SpineAnimationExtractor extends ApplicationAdapter {
         }
         luaCode.append("}\n");
 
-        // 輸出 Lua 程式碼
-        System.out.println(luaCode);
+        // 將 Lua 程式碼寫入 output.lua
+        try {
+            Path outputPath = Paths.get(spineFolderPath, "output.lua");
+            Files.writeString(outputPath, luaCode.toString(), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+            System.out.println("Lua code written to: " + outputPath);
+        } catch (Exception e) {
+            System.err.println("Error writing to output.lua: " + e.getMessage());
+        }
     }
 
     public static void main(String[] args) {
