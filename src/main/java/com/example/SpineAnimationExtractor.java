@@ -144,7 +144,7 @@ public class SpineAnimationExtractor extends ApplicationAdapter {
         luaCode.append("}").append(nl);
 
         // 將 Lua 程式碼寫入 output.lua（Java 8 兼容）
-        Path outputPath = Paths.get(spineFolderPath, "output.lua");
+        Path outputPath = Paths.get(spineFolderPath, "..", "output.lua");
         try (FileOutputStream fos = new FileOutputStream(outputPath.toFile())) {
             fos.write(luaCode.toString().getBytes(StandardCharsets.UTF_8));
             System.out.println("Lua code written to: " + outputPath);
