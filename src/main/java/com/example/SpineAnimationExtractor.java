@@ -13,6 +13,9 @@ import com.esotericsoftware.spine.SkeletonData;
 import com.esotericsoftware.spine.attachments.AtlasAttachmentLoader;
 
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
@@ -119,32 +122,33 @@ public class SpineAnimationExtractor extends ApplicationAdapter {
             }
         }
 
-        // 生成 Lua 程式碼
+        // 生成 Lua 程式碼，使用系統換行符
+        String nl = System.lineSeparator();
         StringBuilder luaCode = new StringBuilder();
-        luaCode.append("local SPINE_SETTING = {\n");
+        luaCode.append("local SPINE_SETTING = {").append(nl);
         for (Map.Entry<String, Entry> entry : entries.entrySet()) {
             String key = entry.getKey();
             Entry data = entry.getValue();
-            luaCode.append("    ").append(key).append(" = {\n");
-            luaCode.append("        Path = SPINE_ROOT .. \"").append(data.path).append("\",\n");
-            luaCode.append("        Animation = {\n");
+            luaCode.append("    ").append(key).append(" = {").append(nl);
+            luaCode.append("        Path = SPINE_ROOT .. \"").append(data.path).append("\",").append(nl);
+            luaCode.append("        Animation = {").append(nl);
             for (String anim : data.animations) {
-                luaCode.append("            ").append(anim).append(" = {\n");
-                luaCode.append("                name = \"").append(anim).append("\",\n");
-                luaCode.append("                isLoop = false,\n");
-                luaCode.append("            },\n");
+                luaCode.append("            ").append(anim).append(" = {").append(nl);
+                luaCode.append("                name = \"").append(anim).append("\",").append(nl);
+                luaCode.append("                isLoop = false,").append(nl);
+                luaCode.append("            },").append(nl);
             }
-            luaCode.append("        },\n");
-            luaCode.append("    },\n");
+            luaCode.append("        },").append(nl);
+            luaCode.append("    },").append(nl);
         }
-        luaCode.append("}\n");
+        luaCode.append("}").append(nl);
 
-        // 將 Lua 程式碼寫入 output.lua
-        try {
-            Path outputPath = Paths.get(spineFolderPath, "output.lua");
-            Files.writeString(outputPath, luaCode.toString(), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+        // 將 Lua 程式碼寫入 output.lua（Java 8 兼容）
+        Path outputPath = Paths.get(spineFolderPath, "output.lua");
+        try (FileOutputStream fos = new FileOutputStream(outputPath.toFile())) {
+            fos.write(luaCode.toString().getBytes(StandardCharsets.UTF_8));
             System.out.println("Lua code written to: " + outputPath);
-        } catch (Exception e) {
+        } catch (IOException e) {
             System.err.println("Error writing to output.lua: " + e.getMessage());
         }
     }
