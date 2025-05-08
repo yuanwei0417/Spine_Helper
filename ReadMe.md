@@ -18,17 +18,6 @@ Spine Animation Extractor 使用說明
 
 重要：資料夾名稱必須為 Spine，不可修改。例如：
 
-D:\SpineHelperMaven\
-├── Spine\
-│   ├── Bg.skel
-│   ├── Bg.atlas
-│   ├── Bg.png
-│   ├── Character\
-│   │   ├── Pot_B.skel
-│   │   ├── Pot_B.atlas
-│   │   ├── Pot_B.png
-├── target\
-
 
 
 運行程式：
