@@ -40,7 +40,7 @@ Spine Animation Extractor 使用說明
 
 
 
-處理完成後，output.lua 將出現在與 Spine 資料夾同級的目錄（例如 D:\SpineHelperMaven\output.lua）。
+處理完成後，output.lua 將出現在與 Spine 資料夾同級的目錄（例如 D:\Spine_Helper\output.lua）。
 
 
 
