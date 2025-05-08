@@ -16,7 +16,7 @@ Spine Animation Extractor 使用說明
 
 
 
-重要：資料夾名稱必須為 Spine，不可修改。例如：
+重要：資料夾名稱必須為 Spine，不可修改。
 
 
 
