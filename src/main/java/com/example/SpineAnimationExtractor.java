@@ -82,13 +82,11 @@ public class SpineAnimationExtractor extends ApplicationAdapter {
 
         for (File skelFile : skelFiles) {
             try {
-                // 計算相對路徑
                 String relativePath = spinePath.relativize(skelFile.toPath()).toString().replace('\\', '/');
                 String pathWithoutExt = relativePath.substring(0, relativePath.length() - 5);
-                String key = pathWithoutExt.replace('/', '_').toUpperCase();
-
-                // 查找對應的 .atlas 檔案
                 String skelBaseName = skelFile.getName().replace(".skel", "");
+                String key = skelBaseName.toUpperCase();
+
                 File atlasFile = atlasFiles.get(skelBaseName);
                 if (atlasFile == null) {
                     System.err.println("No .atlas file found for " + skelFile + ", skipping...");
