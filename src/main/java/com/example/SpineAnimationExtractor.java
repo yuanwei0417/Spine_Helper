@@ -8,6 +8,7 @@ import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.utils.Array;
 import com.esotericsoftware.spine.Animation;
+import com.esotericsoftware.spine.Skin;
 import com.esotericsoftware.spine.SkeletonBinary;
 import com.esotericsoftware.spine.SkeletonData;
 import com.esotericsoftware.spine.attachments.AtlasAttachmentLoader;
@@ -24,10 +25,12 @@ public class SpineAnimationExtractor extends ApplicationAdapter {
     static class Entry {
         String path;
         List<String> animations;
+        List<String> skins; // 新增皮膚列表
 
-        Entry(String path, List<String> animations) {
+        Entry(String path, List<String> animations, List<String> skins) {
             this.path = path;
             this.animations = animations;
+            this.skins = skins;
         }
     }
 
@@ -47,7 +50,7 @@ public class SpineAnimationExtractor extends ApplicationAdapter {
             e.printStackTrace();
         } finally {
             processingComplete = true;
-            Gdx.app.exit(); // 完成後關閉應用
+            Gdx.app.exit();
         }
     }
 
@@ -58,7 +61,6 @@ public class SpineAnimationExtractor extends ApplicationAdapter {
             return;
         }
 
-        // 收集所有 .skel 和 .atlas 檔案
         List<File> skelFiles = new ArrayList<>();
         Map<String, File> atlasFiles = new HashMap<>();
         Files.walkFileTree(spinePath, new SimpleFileVisitor<Path>() {
@@ -77,7 +79,6 @@ public class SpineAnimationExtractor extends ApplicationAdapter {
             }
         });
 
-        // 儲存條目
         TreeMap<String, Entry> entries = new TreeMap<>();
 
         for (File skelFile : skelFiles) {
@@ -93,15 +94,10 @@ public class SpineAnimationExtractor extends ApplicationAdapter {
                     continue;
                 }
 
-                // 載入 TextureAtlas
                 FileHandle atlasHandle = new FileHandle(atlasFile);
                 TextureAtlas atlas = new TextureAtlas(atlasHandle);
-
-                // 使用 AtlasAttachmentLoader
                 AtlasAttachmentLoader attachmentLoader = new AtlasAttachmentLoader(atlas);
                 SkeletonBinary skeletonBinary = new SkeletonBinary(attachmentLoader);
-
-                // 載入骨骼數據
                 FileHandle skelHandle = new FileHandle(skelFile);
                 SkeletonData skeletonData = skeletonBinary.readSkeletonData(skelHandle);
 
@@ -113,14 +109,20 @@ public class SpineAnimationExtractor extends ApplicationAdapter {
                 }
                 Collections.sort(animationNames);
 
-                // 儲存條目
-                entries.put(key, new Entry(pathWithoutExt, animationNames));
+                // 提取並排序皮膚名稱
+                Array<Skin> skins = skeletonData.getSkins();
+                List<String> skinNames = new ArrayList<>();
+                for (Skin skin : skins) {
+                    skinNames.add(skin.getName());
+                }
+                Collections.sort(skinNames);
+
+                entries.put(key, new Entry(pathWithoutExt, animationNames, skinNames));
             } catch (Exception e) {
                 System.err.println("Error processing " + skelFile + ": " + e.getMessage());
             }
         }
 
-        // 生成 Lua 程式碼，使用系統換行符
         String nl = System.lineSeparator();
         StringBuilder luaCode = new StringBuilder();
         luaCode.append("local SPINE_SETTING = {").append(nl);
@@ -129,6 +131,17 @@ public class SpineAnimationExtractor extends ApplicationAdapter {
             Entry data = entry.getValue();
             luaCode.append("    ").append(key).append(" = {").append(nl);
             luaCode.append("        Path = SPINE_ROOT .. \"").append(data.path).append("\",").append(nl);
+
+            // 添加 Skin 字段（如果有非 default 皮膚）
+            if (data.skins != null && data.skins.stream().anyMatch(skin -> !skin.equalsIgnoreCase("default"))) {
+                luaCode.append("        Skin = {").append(nl);
+                for (String skin : data.skins) {
+                    String skinKey = skin.equalsIgnoreCase("default") ? "DEFAULT" : skin.toUpperCase();
+                    luaCode.append("            ").append(skinKey).append(" = \"").append(skin).append("\",").append(nl);
+                }
+                luaCode.append("        },").append(nl);
+            }
+
             luaCode.append("        Animation = {").append(nl);
             for (String anim : data.animations) {
                 luaCode.append("            ").append(anim).append(" = {").append(nl);
@@ -141,7 +154,6 @@ public class SpineAnimationExtractor extends ApplicationAdapter {
         }
         luaCode.append("}").append(nl);
 
-        // 將 Lua 程式碼寫入 output.lua（Java 8 兼容）
         Path outputPath = Paths.get(spineFolderPath, "..", "output.lua");
         try (FileOutputStream fos = new FileOutputStream(outputPath.toFile())) {
             fos.write(luaCode.toString().getBytes(StandardCharsets.UTF_8));
@@ -158,8 +170,8 @@ public class SpineAnimationExtractor extends ApplicationAdapter {
         }
 
         LwjglApplicationConfiguration config = new LwjglApplicationConfiguration();
-        config.title = "Spine Animation Extractor";
-        config.width = 1; // 最小窗口大小
+        config.title = "SpineAnimationExtractor";
+        config.width = 1;
         config.height = 1;
         config.forceExit = true;
         config.vSyncEnabled = false;
