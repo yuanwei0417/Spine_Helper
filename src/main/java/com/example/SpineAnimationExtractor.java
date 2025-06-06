@@ -40,6 +40,35 @@ public class SpineAnimationExtractor extends ApplicationAdapter {
     public SpineAnimationExtractor(String spineFolderPath) {
         this.spineFolderPath = spineFolderPath;
     }
+	
+	// 將駝峰命名轉為下劃線分隔的大寫形式（例如 BigWin_End → BIG_WIN_END）
+    private String toSnakeCaseUpper(String input) {
+        if (input == null || input.isEmpty()) {
+            return input;
+        }
+        StringBuilder result = new StringBuilder();
+        boolean lastWasUpper = false;
+        for (int i = 0; i < input.length(); i++) {
+            char c = input.charAt(i);
+            if (Character.isUpperCase(c)) {
+                if (!lastWasUpper && result.length() > 0 && result.charAt(result.length() - 1) != '_') {
+                    result.append('_');
+                }
+                result.append(c);
+                lastWasUpper = true;
+            } else if (c == '_') {
+                result.append('_');
+                lastWasUpper = false;
+            } else {
+                if (lastWasUpper && result.length() > 1 && result.charAt(result.length() - 2) != '_') {
+                    result.insert(result.length() - 1, '_');
+                }
+                result.append(Character.toUpperCase(c));
+                lastWasUpper = false;
+            }
+        }
+        return result.toString();
+    }
 
     @Override
     public void create() {
@@ -144,7 +173,7 @@ public class SpineAnimationExtractor extends ApplicationAdapter {
 
             luaCode.append("        Animation = {").append(nl);
             for (String anim : data.animations) {
-                luaCode.append("            ").append(anim.toUpperCase()).append(" = {").append(nl);
+                luaCode.append("            ").append(toSnakeCaseUpper(anim)).append(" = {").append(nl);
                 luaCode.append("                name = \"").append(anim).append("\",").append(nl);
                 boolean isLoop = anim.toLowerCase().contains("loop");
 				luaCode.append("                isLoop = ").append(isLoop).append(",").append(nl);
