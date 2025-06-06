@@ -144,7 +144,7 @@ public class SpineAnimationExtractor extends ApplicationAdapter {
 
             luaCode.append("        Animation = {").append(nl);
             for (String anim : data.animations) {
-                luaCode.append("            ").append(anim).append(" = {").append(nl);
+                luaCode.append("            ").append(anim.toUpperCase()).append(" = {").append(nl);
                 luaCode.append("                name = \"").append(anim).append("\",").append(nl);
                 luaCode.append("                isLoop = false,").append(nl);
                 luaCode.append("            },").append(nl);
