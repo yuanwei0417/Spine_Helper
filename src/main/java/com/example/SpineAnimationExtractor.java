@@ -25,11 +25,13 @@ public class SpineAnimationExtractor extends ApplicationAdapter {
     static class Entry {
         String path;
         List<String> animations;
-        List<String> skins; // 新增皮膚列表
+        List<Float> animationDurations; // 新增：動畫持續時間
+        List<String> skins;
 
-        Entry(String path, List<String> animations, List<String> skins) {
+        Entry(String path, List<String> animations, List<Float> animationDurations, List<String> skins) {
             this.path = path;
             this.animations = animations;
+            this.animationDurations = animationDurations;
             this.skins = skins;
         }
     }
@@ -40,8 +42,8 @@ public class SpineAnimationExtractor extends ApplicationAdapter {
     public SpineAnimationExtractor(String spineFolderPath) {
         this.spineFolderPath = spineFolderPath;
     }
-	
-	// 將駝峰命名轉為下劃線分隔的大寫形式（例如 BigWin_End → BIG_WIN_END）
+
+    // 將駝峰命名轉為下劃線分隔的大寫形式（例如 BigWin_End → BIG_WIN_END）
     private String toSnakeCaseUpper(String input) {
         if (input == null || input.isEmpty()) {
             return input;
@@ -68,6 +70,18 @@ public class SpineAnimationExtractor extends ApplicationAdapter {
             }
         }
         return result.toString();
+    }
+
+    // 確保 Lua 表鍵是合法的標識符（處理數字開頭等非法情況）
+    private String makeValidLuaKey(String input) {
+        if (input == null || input.isEmpty()) {
+            return input;
+        }
+        // 如果鍵以數字開頭，前面加 _
+        if (Character.isDigit(input.charAt(0))) {
+            return "_" + input;
+        }
+        return input;
     }
 
     @Override
@@ -130,13 +144,25 @@ public class SpineAnimationExtractor extends ApplicationAdapter {
                 FileHandle skelHandle = new FileHandle(skelFile);
                 SkeletonData skeletonData = skeletonBinary.readSkeletonData(skelHandle);
 
-                // 提取並排序動畫名稱
+                // 提取並排序動畫名稱和持續時間
                 Array<Animation> animations = skeletonData.getAnimations();
                 List<String> animationNames = new ArrayList<>();
+                List<Float> animationDurations = new ArrayList<>();
                 for (Animation anim : animations) {
                     animationNames.add(anim.getName());
+                    animationDurations.add(anim.getDuration());
                 }
-                Collections.sort(animationNames);
+                List<Integer> sortedIndices = new ArrayList<>();
+                for (int i = 0; i < animationNames.size(); i++) {
+                    sortedIndices.add(i);
+                }
+                sortedIndices.sort((a, b) -> animationNames.get(a).compareTo(animationNames.get(b)));
+                List<String> sortedAnimationNames = new ArrayList<>();
+                List<Float> sortedAnimationDurations = new ArrayList<>();
+                for (int index : sortedIndices) {
+                    sortedAnimationNames.add(animationNames.get(index));
+                    sortedAnimationDurations.add(animationDurations.get(index));
+                }
 
                 // 提取並排序皮膚名稱
                 Array<Skin> skins = skeletonData.getSkins();
@@ -146,7 +172,23 @@ public class SpineAnimationExtractor extends ApplicationAdapter {
                 }
                 Collections.sort(skinNames);
 
-                entries.put(key, new Entry(pathWithoutExt, animationNames, skinNames));
+                // 提取並排序 Bone 名稱
+                Array<BoneData> bones = skeletonData.getBones();
+                List<String> boneNames = new ArrayList<>();
+                for (BoneData bone : bones) {
+                    boneNames.add(bone.getName());
+                }
+                Collections.sort(boneNames);
+
+                // 提取並排序 Slot 名稱
+                Array<SlotData> slots = skeletonData.getSlots();
+                List<String> slotNames = new ArrayList<>();
+                for (SlotData slot : slots) {
+                    slotNames.add(slot.getName());
+                }
+                Collections.sort(slotNames);
+
+                entries.put(key, new Entry(pathWithoutExt, sortedAnimationNames, sortedAnimationDurations, skinNames, boneNames, slotNames));
             } catch (Exception e) {
                 System.err.println("Error processing " + skelFile + ": " + e.getMessage());
             }
@@ -161,22 +203,46 @@ public class SpineAnimationExtractor extends ApplicationAdapter {
             luaCode.append("    ").append(key).append(" = {").append(nl);
             luaCode.append("        Path = SPINE_ROOT .. \"").append(data.path).append("\",").append(nl);
 
-            // 添加 Skin 字段（如果有非 default 皮膚）
+            // 生成 BoneName 字段
+            if (data.bones != null && !data.bones.isEmpty()) {
+                luaCode.append("        BoneName = {").append(nl);
+                for (String bone : data.bones) {
+                    String boneKey = bone.toUpperCase();
+                    luaCode.append("            ").append(boneKey).append(" = \"").append(bone).append("\",").append(nl);
+                }
+                luaCode.append("        },").append(nl);
+            }
+
+            // 生成 SlotName 字段
+            if (data.slots != null && !data.slots.isEmpty()) {
+                luaCode.append("        SlotName = {").append(nl);
+                for (String slot : data.slots) {
+                    String slotKey = makeValidLuaKey(slot.toUpperCase());
+                    luaCode.append("            ").append(slotKey).append(" = \"").append(slot).append("\",").append(nl);
+                }
+                luaCode.append("        },").append(nl);
+            }
+
+            // 生成 Skin 字段（處理非法鍵）
             if (data.skins != null && data.skins.stream().anyMatch(skin -> !skin.equalsIgnoreCase("default"))) {
                 luaCode.append("        Skin = {").append(nl);
                 for (String skin : data.skins) {
-                    String skinKey = skin.equalsIgnoreCase("default") ? "DEFAULT" : skin.toUpperCase();
+                    String skinKey = skin.equalsIgnoreCase("default") ? "DEFAULT" : makeValidLuaKey(skin.toUpperCase());
                     luaCode.append("            ").append(skinKey).append(" = \"").append(skin).append("\",").append(nl);
                 }
                 luaCode.append("        },").append(nl);
             }
 
+            // 生成 Animation 字段（包含 time）
             luaCode.append("        Animation = {").append(nl);
-            for (String anim : data.animations) {
+            for (int i = 0; i < data.animations.size(); i++) {
+                String anim = data.animations.get(i);
+                float duration = data.animationDurations.get(i);
                 luaCode.append("            ").append(toSnakeCaseUpper(anim)).append(" = {").append(nl);
                 luaCode.append("                name = \"").append(anim).append("\",").append(nl);
                 boolean isLoop = anim.toLowerCase().contains("loop");
-				luaCode.append("                isLoop = ").append(isLoop).append(",").append(nl);
+                luaCode.append("                isLoop = ").append(isLoop).append(",").append(nl);
+                luaCode.append("                time = ").append(String.format(Locale.US, "%.2f", duration)).append(",").append(nl);
                 luaCode.append("            },").append(nl);
             }
             luaCode.append("        },").append(nl);
