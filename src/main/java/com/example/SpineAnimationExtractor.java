@@ -8,9 +8,11 @@ import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.utils.Array;
 import com.esotericsoftware.spine.Animation;
+import com.esotericsoftware.spine.BoneData;
 import com.esotericsoftware.spine.Skin;
 import com.esotericsoftware.spine.SkeletonBinary;
 import com.esotericsoftware.spine.SkeletonData;
+import com.esotericsoftware.spine.SlotData;
 import com.esotericsoftware.spine.attachments.AtlasAttachmentLoader;
 
 import java.io.File;
@@ -27,12 +29,16 @@ public class SpineAnimationExtractor extends ApplicationAdapter {
         List<String> animations;
         List<Float> animationDurations; // 新增：動畫持續時間
         List<String> skins;
+        List<String> bones; // 新增：Bone 名稱
+        List<String> slots; // 新增：Slot 名稱
 
-        Entry(String path, List<String> animations, List<Float> animationDurations, List<String> skins) {
+        Entry(String path, List<String> animations, List<Float> animationDurations, List<String> skins, List<String> bones, List<String> slots) {
             this.path = path;
             this.animations = animations;
             this.animationDurations = animationDurations;
             this.skins = skins;
+            this.bones = bones;
+            this.slots = slots;
         }
     }
 
