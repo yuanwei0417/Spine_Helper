@@ -27,10 +27,10 @@ public class SpineAnimationExtractor extends ApplicationAdapter {
     static class Entry {
         String path;
         List<String> animations;
-        List<Float> animationDurations; // 新增：動畫持續時間
+        List<Float> animationDurations;
         List<String> skins;
-        List<String> bones; // 新增：Bone 名稱
-        List<String> slots; // 新增：Slot 名稱
+        List<String> bones;
+        List<String> slots;
 
         Entry(String path, List<String> animations, List<Float> animationDurations, List<String> skins, List<String> bones, List<String> slots) {
             this.path = path;
@@ -49,7 +49,7 @@ public class SpineAnimationExtractor extends ApplicationAdapter {
         this.spineFolderPath = spineFolderPath;
     }
 
-    // 將駝峰命名轉為下劃線分隔的大寫形式（例如 BigWin_End → BIG_WIN_END）
+    // 將駝峰命名轉為下畫線分隔的大寫形式（例如 BigWin_End → BIG_WIN_END）
     private String toSnakeCaseUpper(String input) {
         if (input == null || input.isEmpty()) {
             return input;
@@ -178,19 +178,23 @@ public class SpineAnimationExtractor extends ApplicationAdapter {
                 }
                 Collections.sort(skinNames);
 
-                // 提取並排序 Bone 名稱
+                // 提取並排序 Bone 名稱（僅 HP_ 開頭）
                 Array<BoneData> bones = skeletonData.getBones();
                 List<String> boneNames = new ArrayList<>();
                 for (BoneData bone : bones) {
-                    boneNames.add(bone.getName());
+                    if (bone.getName().startsWith("HP_")) {
+                        boneNames.add(bone.getName());
+                    }
                 }
                 Collections.sort(boneNames);
 
-                // 提取並排序 Slot 名稱
+                // 提取並排序 Slot 名稱（僅 SLOT_ 開頭）
                 Array<SlotData> slots = skeletonData.getSlots();
                 List<String> slotNames = new ArrayList<>();
                 for (SlotData slot : slots) {
-                    slotNames.add(slot.getName());
+                    if (slot.getName().startsWith("SLOT_")) {
+                        slotNames.add(slot.getName());
+                    }
                 }
                 Collections.sort(slotNames);
 
@@ -209,7 +213,7 @@ public class SpineAnimationExtractor extends ApplicationAdapter {
             luaCode.append("    ").append(key).append(" = {").append(nl);
             luaCode.append("        Path = SPINE_ROOT .. \"").append(data.path).append("\",").append(nl);
 
-            // 生成 BoneName 字段
+            // 生成 BoneName 字段（僅 HP_ 開頭）
             if (data.bones != null && !data.bones.isEmpty()) {
                 luaCode.append("        BoneName = {").append(nl);
                 for (String bone : data.bones) {
@@ -219,7 +223,7 @@ public class SpineAnimationExtractor extends ApplicationAdapter {
                 luaCode.append("        },").append(nl);
             }
 
-            // 生成 SlotName 字段
+            // 生成 SlotName 字段（僅 SLOT_ 開頭）
             if (data.slots != null && !data.slots.isEmpty()) {
                 luaCode.append("        SlotName = {").append(nl);
                 for (String slot : data.slots) {
@@ -229,7 +233,7 @@ public class SpineAnimationExtractor extends ApplicationAdapter {
                 luaCode.append("        },").append(nl);
             }
 
-            // 生成 Skin 字段（處理非法鍵）
+            // 生成 Skin 字段
             if (data.skins != null && data.skins.stream().anyMatch(skin -> !skin.equalsIgnoreCase("default"))) {
                 luaCode.append("        Skin = {").append(nl);
                 for (String skin : data.skins) {
@@ -239,7 +243,7 @@ public class SpineAnimationExtractor extends ApplicationAdapter {
                 luaCode.append("        },").append(nl);
             }
 
-            // 生成 Animation 字段（包含 time）
+            // 生成 Animation 字段
             luaCode.append("        Animation = {").append(nl);
             for (int i = 0; i < data.animations.size(); i++) {
                 String anim = data.animations.get(i);
