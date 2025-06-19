@@ -252,7 +252,7 @@ public class SpineAnimationExtractor extends ApplicationAdapter {
                 luaCode.append("                name = \"").append(anim).append("\",").append(nl);
                 boolean isLoop = anim.toLowerCase().contains("loop");
                 luaCode.append("                isLoop = ").append(isLoop).append(",").append(nl);
-                luaCode.append("                time = ").append(String.format(Locale.US, "%.3f", duration)).append(",").append(nl);
+                luaCode.append("                _time = ").append(String.format(Locale.US, "%.3f", duration)).append(",").append(nl);
                 luaCode.append("            },").append(nl);
             }
             luaCode.append("        },").append(nl);
